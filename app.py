@@ -33,10 +33,11 @@ TOOLS = {
 # ------------------ Helpers ------------------
 def copy_link_ui(url: str):
     """
-    真复制按钮（clipboard API）。
-    用 json.dumps 做字符串转义，避免引号/特殊字符导致 JS 报错。
+    真复制按钮（clipboard API）
+    关键：f-string 里 JS 的 { } 要写成 {{ }}，否则 Python 会把它当成表达式而报 SyntaxError。
     """
-    url_js = json.dumps(url)  # safe JS string
+    url_js = json.dumps(url)  # 安全注入 JS 字符串，避免引号等字符导致 JS 报错
+
     html = f"""
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <code style="padding:6px 10px; border:1px solid #e6e6e6; border-radius:8px; background:#fafafa;">
@@ -46,13 +47,13 @@ def copy_link_ui(url: str):
         id="copyBtn"
         style="padding:6px 12px; border:1px solid #e6e6e6; border-radius:10px; cursor:pointer; background:white;"
         onclick="
-          navigator.clipboard.writeText({url_js}).then(()=>{
-            const b=document.getElementById('copyBtn');
-            b.innerText='✅ 已复制';
-            setTimeout(()=>b.innerText='📋 复制链接', 1200);
-          }).catch(()=>{
-            alert('复制失败：浏览器可能禁止剪贴板权限。你可以手动复制上方链接。');
-          });
+          navigator.clipboard.writeText({url_js}).then(() => {{
+            const b = document.getElementById('copyBtn');
+            b.innerText = '✅ 已复制';
+            setTimeout(() => b.innerText = '📋 复制链接', 1200);
+          }}).catch(() => {{
+            alert('复制失败：浏览器可能禁止剪贴板权限，请手动复制链接。');
+          }});
         "
       >📋 复制链接</button>
     </div>
@@ -61,12 +62,13 @@ def copy_link_ui(url: str):
 
 def adaptive_iframe(url: str, min_height: int = 720):
     """
-    自适应高度 iframe：高度跟随窗口变化。
+    自适应高度 iframe：高度跟随窗口变化（减去一点顶部空间）
+    同样注意：JS 的 { } 要写成 {{ }}。
     """
     url_js = json.dumps(url)
+
     html = f"""
     <script>
-      const URL = {url_js};
       const calcHeight = () => {{
         const h = Math.max({min_height}, window.innerHeight - 190);
         const iframe = document.getElementById("tool_iframe");
@@ -92,7 +94,7 @@ with st.sidebar:
     st.title("🧰 Tools Hub")
     st.caption("左侧切换工具，右侧内嵌显示；若被拦截可直接新标签页打开。")
 
-    # 侧边栏显示更短一点：icon + 简名
+    # 侧边栏显示更短：icon + 简名
     tool_keys = list(TOOLS.keys())
     tool_labels = [f"{TOOLS[k]['icon']} {k.split('（')[0]}" for k in tool_keys]
     label_to_key = dict(zip(tool_labels, tool_keys))
@@ -108,7 +110,6 @@ with st.sidebar:
     st.divider()
     st.subheader("显示设置")
 
-    # 建议：新标签页打开按钮始终保留（最稳），不再让用户关掉
     use_iframe = st.toggle("右侧内嵌显示（iframe）", value=True)
     adaptive_height = st.toggle("iframe 高度自适应（推荐）", value=True, disabled=not use_iframe)
 
@@ -122,7 +123,7 @@ with st.sidebar:
     )
 
     st.caption(
-        "若右侧空白/拒绝加载：目标站点禁止 iframe（浏览器安全策略），"
+        "若右侧空白/拒绝加载：目标站点可能禁止 iframe（浏览器安全策略），"
         "请用主页面的“新标签页打开”。"
     )
 
@@ -144,7 +145,6 @@ st.divider()
 
 # 内容区
 if use_iframe:
-    # 更主动的兜底提示（用户不需要去 sidebar 才能知道怎么办）
     st.info(
         "如果下方显示空白/拒绝加载：这是目标 App 禁止 iframe 内嵌。直接点击上方“新标签页打开”。",
         icon="ℹ️",
@@ -155,4 +155,3 @@ if use_iframe:
         components.iframe(url, height=height, scrolling=True)
 else:
     st.warning("已关闭 iframe 内嵌。请点击上方“新标签页打开”。", icon="⚠️")
-
