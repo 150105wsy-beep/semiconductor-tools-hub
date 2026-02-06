@@ -1,5 +1,4 @@
 # app.py
-import json
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
 import streamlit as st
@@ -42,38 +41,8 @@ def with_embed_true(url: str) -> str:
     return urlunparse((u.scheme, u.netloc, u.path, u.params, new_query, u.fragment))
 
 
-def copy_link_ui(url: str):
-    """
-    干净版复制按钮：
-    - 不在页面上显示 URL（避免把 URL+JS “泄露显示”出来）
-    - 只显示一个复制按钮
-    """
-    url_js = json.dumps(url)  # 安全注入 JS 字符串
-
-    html = f"""
-    <button
-      style="
-        padding:6px 12px;
-        border:1px solid #e6e6e6;
-        border-radius:10px;
-        cursor:pointer;
-        background:white;
-      "
-      onclick="
-        navigator.clipboard.writeText({url_js}).then(() => {{
-          this.innerText = '✅ 已复制';
-          setTimeout(() => this.innerText = '📋 复制链接', 1200);
-        }}).catch(() => {{
-          alert('复制失败：浏览器可能禁止剪贴板权限，请手动复制链接。');
-        }});
-      "
-    >📋 复制链接</button>
-    """
-    components.html(html, height=48)
-
-
 def adaptive_iframe(url: str, min_height: int = 720):
-    """Adaptive-height iframe (escape braces in f-string)."""
+    """Adaptive-height iframe."""
     html = f"""
     <script>
       const calcHeight = () => {{
@@ -89,8 +58,8 @@ def adaptive_iframe(url: str, min_height: int = 720):
     <iframe
       id="tool_iframe"
       src="{url}"
-      style="width:100%; border:0; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06);"
-      allow="clipboard-read; clipboard-write; fullscreen"
+      style="width:100%; border:0; border-radius:14px;
+             box-shadow:0 2px 10px rgba(0,0,0,.06);"
       loading="lazy"
     ></iframe>
     """
@@ -99,7 +68,7 @@ def adaptive_iframe(url: str, min_height: int = 720):
 # ------------------ Sidebar ------------------
 with st.sidebar:
     st.title("🧰 Tools Hub")
-    st.caption("左侧切换工具，右侧内嵌显示；若被拦截可直接新标签页打开。")
+    st.caption("左侧切换工具，右侧内嵌显示；如失败可新标签页打开。")
 
     tool_keys = list(TOOLS.keys())
     tool_labels = [f"{TOOLS[k]['icon']} {k.split('（')[0]}" for k in tool_keys]
@@ -117,7 +86,11 @@ with st.sidebar:
     st.subheader("显示设置")
 
     use_iframe = st.toggle("右侧内嵌显示（iframe）", value=True)
-    adaptive_height = st.toggle("iframe 高度自适应（推荐）", value=True, disabled=not use_iframe)
+    adaptive_height = st.toggle(
+        "iframe 高度自适应（推荐）",
+        value=True,
+        disabled=not use_iframe,
+    )
 
     height = st.slider(
         "内嵌高度（px）",
@@ -129,29 +102,26 @@ with st.sidebar:
     )
 
     st.caption(
-        "若右侧空白/重定向过多：目标站点在 iframe 内可能发生登录/会话重定向。\n"
-        "本页已对 iframe URL 追加 embed=true 以降低该问题；仍不行请用“新标签页打开”。"
+        "若右侧空白/重定向过多：目标站点可能不允许 iframe。\n"
+        "请使用主界面的“新标签页打开”。"
     )
 
 # ------------------ Main ------------------
 info = TOOLS[tool_name]
 url = info["url"]
-embed_url = with_embed_true(url)  # ✅ 第一种方案：iframe 使用 embed=true
+embed_url = with_embed_true(url)
 
 st.markdown(f"## {info['icon']} {tool_name}")
 st.caption(info["desc"])
 
-col_a, col_b = st.columns([1.2, 1.2], vertical_alignment="center")
-with col_a:
-    st.link_button("🔗 新标签页打开", url, use_container_width=True)
-with col_b:
-    copy_link_ui(url)
+# 顶部操作区（只保留一个干净、稳定的入口）
+st.link_button("🔗 新标签页打开", url, use_container_width=False)
 
 st.divider()
 
 if use_iframe:
     st.info(
-        "如果下方仍显示空白/重定向过多：请直接点击上方“新标签页打开”（最稳）。",
+        "如果下方显示空白或重定向过多，请直接点击上方“新标签页打开”（最稳）。",
         icon="ℹ️",
     )
     if adaptive_height:
